@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>React Table</title>
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const ITEMS_PER_PAGE = 50;
+      const dummyData = [
+        { name: "Andrey", username: "Ivanov", value: "2" },
+        { name: "Sasha", username: "Petrov", value: "1" },
+        { name: "Ivan", username: "Sidorov", value: "-1" },
+        { name: "Igor", username: "Makarov", value: "10" },
+        { name: "Elena", username: "Makarova", value: "-2" },
+      ];
+
+      for (let i = 0; i < 50; i++) {
+        dummyData.push({
+          name: "Just to test pagination",
+          username: "Just to test pagination",
+          value: (Math.random() * 100).toFixed(0),
+        });
+      }
+
+      const Pagination = (props) => {
+        let markup = [];
+        for (let i = 1; i <= props.pagesQuantity; i++) {
+          let style = { margin: "10px" };
+          if (i === +props.currentPage) {
+            style["fontWeight"] = "bold";
+          }
+          markup.push(
+            <a href={"?page=" + i} key={Math.random().toFixed(6)} style={style}>
+              {i}
+            </a>
+          );
+        }
+        return markup;
+      };
+
+      const TableCell = (props) => {
+        return <td>{props.value}</td>;
+      };
+
+      const TableRow = (props) => {
+        return (
+          <tr>
+            {props.data.map((el) => (
+              <TableCell key={Math.random().toFixed(6)} value={el} />
+            ))}
+          </tr>
+        );
+      };
+
+      const Input = (props) => {
+        return (
+          <div style={{ marginBottom: "10px" }}>
+            Search:{" "}
+            <input type="text" name="search" onChange={props.onChange} />
+          </div>
+        );
+      };
+
+      class Table extends React.Component {
+        state = {
+          data: [...this.props.data],
+          heads: Object.keys(this.props.data[0]).reduce((acc, el) => {
+            let id = Math.random().toFixed(6);
+            acc.push({
+              id: id,
+              value: el,
+              compare: (obj1, obj2) => {
+                if (!isNaN(+obj1[el]) && !isNaN(+obj2[el])) {
+                  return +obj1[el] - +obj2[el];
+                }
+                if (obj1[el] < obj2[el]) {
+                  return -1;
+                }
+                if (obj1[el] > obj2[el]) {
+                  return 1;
+                }
+                return 0;
+              },
+            });
+            return acc;
+          }, []),
+          selected: [],
+          searching: false,
+          page: 1,
+        };
+
+        componentDidMount = () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const page = urlParams.get("page");
+          if (!page) {
+            this.setState({ page: 1 });
+            this.setState({ data: [...this.props.data] });
+          } else {
+            this.setState({ page: page });
+            this.setState({
+              data: this.props.data.slice(
+                (page - 1) * ITEMS_PER_PAGE,
+                page * ITEMS_PER_PAGE
+              ),
+            });
+          }
+        };
+
+        onChangeInputHandler = ({ target }) => {
+          if (target.value && !this.state.searching) {
+            this.setState({ searching: true });
+          }
+          if (!target.value && this.state.searching) {
+            this.setState({ searching: false });
+          }
+          let newSelected = [];
+
+          for (let el of this.state.data) {
+            for (let val of Object.values(el)) {
+              if (val.toLowerCase().includes(target.value.toLowerCase())) {
+                newSelected.push(el);
+                break;
+              }
+            }
+          }
+          this.setState({ selected: newSelected });
+        };
+
+        onSortHandler = (id) => {
+          const sorted = [];
+          const head = this.state.heads.filter((el) => el.id === id)[0];
+          const dataToSort = [...this.state.data];
+          dataToSort.sort(head.compare);
+          this.setState({ data: dataToSort });
+        };
+
+        render() {
+          if (this.state.data.length === 0) {
+            window.location.href = "/index.html";
+          }
+          const headers = [];
+          const rows = [];
+          for (let head of this.state.heads) {
+            headers.push(
+              <th key={head.id} onClick={() => this.onSortHandler(head.id)}>
+                {head.value}
+              </th>
+            );
+          }
+
+          if (this.state.searching) {
+            for (let el of this.state.selected) {
+              rows.push(
+                <TableRow
+                  key={Math.random().toFixed(6)}
+                  data={Object.values(el)}
+                />
+              );
+            }
+          } else {
+            for (let el of this.state.data) {
+              rows.push(
+                <TableRow
+                  key={Math.random().toFixed(6)}
+                  data={Object.values(el)}
+                />
+              );
+            }
+          }
+
+          return (
+            <div>
+              <Input onChange={this.onChangeInputHandler} />
+              <table border="1" width="100%" cellPadding="5" cellSpacing="0">
+                <thead>
+                  <tr>{headers}</tr>
+                </thead>
+                <tbody>{rows}</tbody>
+              </table>
+              <div
+                style={{
+                  width: "100%",
+                  textAlign: "center",
+                  marginTop: "10px",
+                }}
+              >
+                <Pagination
+                  pagesQuantity={Math.ceil(
+                    this.props.data.length / ITEMS_PER_PAGE
+                  )}
+                  currentPage={this.state.page}
+                />
+              </div>
+            </div>
+          );
+        }
+      }
+
+      ReactDOM.render(
+        <Table data={dummyData} />,
+        document.getElementById("root")
+      );
+    </script>
+  </body>
+</html>
